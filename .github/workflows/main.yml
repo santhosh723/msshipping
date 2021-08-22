@@ -55,7 +55,32 @@ jobs:
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         ECR_REPOSITORY: msshipping
-        IMAGE_TAG: ship_${{ github.sha }}
+        IMAGE_TAG: msshipimg_${{ github.sha }}
       run: |
+        echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        
+    - name: Helm Git Clone and update image tag
+      run: |
+        export GITHUB_USER=santhosh723
+        echo "GITHUB_USER=$GITHUB_USER" >> $GITHUB_ENV
+        echo "GITHUB_TOKEN=${{ secrets.HUB_SECRET }}" >> $GITHUB_ENV
+        git config --global user.email "santhosh.palanivel@hotmail.com"
+        git config --global user.name $GITHUB_USER
+        # Clone the necessary repos
+        git clone https://github.com/santhosh723/helmcharts.git
+        cd helmcharts
+        echo "HELM_BASE=$(pwd)" >> $GITHUB_ENV
+        echo $HELM_BASE
+        cd msshipping
+        echo "CHART_DIR=$(pwd)" >> $GITHUB_ENV
+        sed -i 's/msshipimg_.*/'$IMAGE_TAG'"/g' values.yaml 
+        grep tag values.yaml
+        cd ../
+        git add .
+        git status
+        git commit -m 'tag update'
+        git remote rename origin destination
+        git remote add origin https://$GITHUB_USER:${{ secrets.HUB_SECRET }}@github.com/$GITHUB_USER/helmcharts.git
+        git push origin master 
